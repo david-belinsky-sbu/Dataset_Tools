@@ -15,23 +15,38 @@ import glob
 import scipy.io as sio
 import matplotlib.pyplot as plt
 import fnmatch
+import subprocess
 
 
 svsloc = sys.argv[2]
 print(svsloc)
 outputDir = sys.argv[3]
+remotefile = False
 
 datafile = sys.argv[1]
+remoteuser = sys.argv[4]
+remotekey = sys.argv[5]
 manifest = pd.read_csv(datafile)
 
-def find(pattern, path):
+def downRemoteFile(path, remotefile):
+    basename = path.split('/')
+    basename = basename[-1]
+    print(path)
+    print("Downloading File: {}".format(path), end=' ')
+    p = subprocess.Popen(["scp", '-i', remotekey, '{}@129.49.254.215:{}'.format(remoteuser, path), basename])
+    sts = os.waitpid(p.pid, 0)
+    print("Done")
+    remotefile = True
+    return basename, remotefile
+
+def find(pattern, path, remotefile):
     #print(path)
     #print(pattern)
     for root, dirs, files in os.walk(path):
         for name in files:
             if fnmatch.fnmatch(name, pattern):
-                return os.path.join(path, name)
-    raise NameError('SVS not found')
+                return os.path.join(path, name), remotefile
+    return downRemoteFile('/home/tcga_all/{}/{}'.format(path.split('/')[-1], pattern), remotefile)
 
 patch_size_40X = 1600
 level = 0
@@ -60,9 +75,9 @@ for index, row in manifest.iterrows():
         if not os.path.exists(tumordir):
             if tumor not in missing_tumors:
                 missing_tumors.append(tumor)
-            raise ValueError("Tumor location nonexistant")
-
-        svsfile = find(slide_name + '*.svs', tumordir)
+            svsfile, remotefile = downRemoteFile('/home/tcga_all/{}/{}'.format(tumor, slide_name + '*.svs'), remotefile)
+        else:
+            svsfile, remotefile = find(slide_name + '*.svs', tumordir, remotefile)
         oslide = openslide.OpenSlide(svsfile);
         if openslide.PROPERTY_NAME_MPP_X in oslide.properties:
             mag = 10.0 / float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]);
@@ -94,15 +109,22 @@ for index, row in manifest.iterrows():
             pw_y = pw
 
         patch = oslide.read_region((int(patchlocs[0]), int(patchlocs[1])), 0, (pw_x, pw_y));
-        patch.resize((int(patch_size_40X * pw_x / pw), int(patch_size_40X * pw_y / pw)), Image.ANTIALIAS)
+        if pw_x != pw and pw_y != pw:
+            patch.resize((int(patch_size_40X * pw_x / pw), int(patch_size_40X * pw_y / pw)), Image.ANTIALIAS)
+        else:
+            patch.resize((int(patch_size_40X), int(patch_size_40X)), Image.ANTIALIAS)
         patch.save(output_file)
         oslide.close()
         print('extracting {}'.format(output_file));
+        if remotefile:
+            print("Removing {}".format(svsfile))
+            os.remove(svsfile)
+            remotefile = False
     except NameError:
         missing_slides.append(slide_name)
         print('Find Failed: {}'.format(slide_name))
-    except:
-        print('{}: exception caught'.format(slide_name));
+    except Exception as e:
+        print('{}: exception caught\nMessage: {}'.format(slide_name, str(e)));
 
 
 with open('errors.txt', 'w') as f:
