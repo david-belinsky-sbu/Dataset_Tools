@@ -27,6 +27,7 @@ datafile = sys.argv[1]
 remoteuser = sys.argv[4]
 remotekey = sys.argv[5]
 manifest = pd.read_csv(datafile)
+manifest["Native_Scale"] = 0
 
 def downRemoteFile(path, remotefile):
     basename = path.split('/')
@@ -114,6 +115,7 @@ for index, row in manifest.iterrows():
         else:
             patch.resize((int(patch_size_40X), int(patch_size_40X)), Image.ANTIALIAS)
         patch.save(output_file)
+        manifest.at[index, 'Native_Scale'] = mag
         oslide.close()
         print('extracting {}'.format(output_file));
         if remotefile:
@@ -134,3 +136,5 @@ with open('errors.txt', 'w') as f:
     f.write('Missing Slides: ')
     f.write(str(missing_slides))
     f.write('\n')
+
+manifest.to_csv(datafile)
