@@ -1,5 +1,5 @@
 #!/bin/bash
 
-IN_FOLDER=/nfs/bigcornea/mahmudul/tcga
-OUT_FOLDER=/nfs/bigcornea/mahmudul/patches
+IN_FOLDER=../../svs
+OUT_FOLDER=../../patches
 PATCH_SIZE=1000
