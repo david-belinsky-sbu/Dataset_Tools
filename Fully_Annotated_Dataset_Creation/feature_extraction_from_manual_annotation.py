@@ -143,7 +143,7 @@ for index, row in manifest.iterrows():
             print('[WARNING] mpp value not found. Assuming it is 40X with mpp=0.254!', slide_name);
             mag = 10.0 / float(0.254);
 
-        scale = 20.0 / mag;  # scale patch size from 'mag' to 40x
+        scale = 40.0 / mag;  # scale patch size from 'mag' to 40x
         patch_size_40X = int(pw * scale)
 
         width = oslide.dimensions[0];

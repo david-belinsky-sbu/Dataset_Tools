@@ -21,6 +21,7 @@ import subprocess
 svsloc = sys.argv[2]
 print(svsloc)
 outputDir = sys.argv[3]
+validDir = sys.argv[12]
 remotefile = False
 
 datafile = sys.argv[1]
@@ -75,6 +76,7 @@ for i in range(12):
 
 
 if not os.path.exists(outputDir): os.makedirs(outputDir)
+if not os.path.exists(validDir): os.makedirs(validDir)
 
 file_list = glob.glob(annotdata + '*.png')
     
@@ -119,6 +121,7 @@ for fname in file_list:
         ymax = height // pw
         slidename = slide_name.split('.')[-3]
         annot = cv2.imread(fname, 0)
+        annotrgb = np.stack((annot, annot, annot), axis=-1)
         annotscale = width / annot.shape[1]
         pwannot = int(round(pw / annotscale))
         #print('annotation shape: {}'.format(str(annot.shape)))
@@ -157,6 +160,9 @@ for fname in file_list:
                         manifest = manifest.append(pd.DataFrame({'Slide': [slidename], 'Patch': ['{}_{}'.format((x*pw)+1, (y*pw)+1)], 'Tumor': [tumor], 'Annotation': [annotport], 'Annotation Discrete': [1], 
                                                             'Native Scale': [mag]}).set_index(["Slide", "Patch"], drop=False), verify_integrity=True)
                         patch.save('{}{}_{}_{}.png'.format(outputDir, slidename, (x*pw)+1, (y*pw)+1))
+                        validpatch = np.copy(annotrgb)
+                        validpatch[annoty: annoty + pwannot, annotx: annotx + pwannot] = np.array([255, 0, 0])
+                        cv2.imwrite('{}{}_{}_{}.png'.format(validDir, slidename, (x*pw)+1, (y*pw)+1), validpatch)
                         highcount += 1
                         print('highcount: {}, Patch: {}_{}'.format(highcount, (x*pw)+1, (y*pw)+1))
                 elif annotport < 0.25:
@@ -173,6 +179,9 @@ for fname in file_list:
                         manifest = manifest.append(pd.DataFrame({'Slide': [slidename], 'Patch': ['{}_{}'.format((x*pw)+1, (y*pw)+1)], 'Tumor': [tumor], 'Annotation': [annotport], 'Annotation Discrete': [0],
                                                             'Native Scale': [mag]}).set_index(["Slide", "Patch"], drop=False), verify_integrity=True)
                         patch.save('{}{}_{}_{}.png'.format(outputDir, slidename, (x*pw)+1, (y*pw)+1))
+                        validpatch = np.copy(annotrgb)
+                        validpatch[annoty: annoty + pwannot, annotx: annotx + pwannot] = np.array([255, 0, 0])
+                        cv2.imwrite('{}{}_{}_{}.png'.format(validDir, slidename, (x*pw)+1, (y*pw)+1), validpatch)
                         lowcount += 1
                         print('lowcount: {}, Patch: {}_{}'.format(lowcount, (x*pw)+1, (y*pw)+1))
                 else:
@@ -189,6 +198,9 @@ for fname in file_list:
                         manifest = manifest.append(pd.DataFrame({'Slide': [slidename], 'Patch': ['{}_{}'.format((x*pw)+1, (y*pw)+1)], 'Tumor': [tumor], 'Annotation': [annotport], 'Annotation Discrete': [0.5],
                                                             'Native Scale': [mag]}).set_index(["Slide", "Patch"], drop=False), verify_integrity=True)
                         patch.save('{}{}_{}_{}.png'.format(outputDir, slidename, (x*pw)+1, (y*pw)+1))
+                        validpatch = np.copy(annotrgb)
+                        validpatch[annoty: annoty + pwannot, annotx: annotx + pwannot] = np.array([255, 0, 0])
+                        cv2.imwrite('{}{}_{}_{}.png'.format(validDir, slidename, (x*pw)+1, (y*pw)+1), validpatch)
                         medcount += 1
                         print('medcount: {}, Patch: {}_{}'.format(medcount, (x*pw)+1, (y*pw)+1))
             except Exception as e:

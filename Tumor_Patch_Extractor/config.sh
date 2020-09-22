@@ -1,6 +1,6 @@
 #!/bin/bash
 
-WORKDIR=../../tumor_superpatches/
+WORKDIR=../../tumor_superpatches2/
 DATAFILE=tumor_manifest.csv
 DATAMANIFEST=$WORKDIR$DATAFILE
 SVSLOC="/data{}/tcga_data/tumor/"
@@ -17,4 +17,6 @@ LOW=10
 SEED=1
 
 OUTPUTFOLDER=super-patches/
+VALIDFOLDER=annot-location/
 OUTPUTDIR=$WORKDIR$OUTPUTFOLDER
+VALIDDIR=$WORKDIR$VALIDFOLDER
