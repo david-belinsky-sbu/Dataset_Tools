@@ -24,22 +24,27 @@ import subprocess
 
 #brca = '/data/images/tcga_data/brca/'
 #brcaloc = sys.argv[3]
-quip = '/data/images/'
-quiploc = sys.argv[3]
+#quip = '/data/images/'
+#quiploc = sys.argv[3]
+svs = sys.argv[4]
+svsloc = sys.argv[3]
 
-outputDir = sys.argv[5]
+outputDir = sys.argv[6]
 
 extract_type = 'mirror'
 step_size = [80, 80]
 win_size = [540, 540]
 xtractor = PatchExtractor(win_size, step_size)
 dumppath = sys.argv[1]
-polygonpath = sys.argv[4] + '{}/*.csv'
+polygonpath = sys.argv[5] + '{}/*.csv'
 manifest = pd.read_csv(os.path.join(dumppath, sys.argv[2]))
-manifest["imagepath"] = manifest["imagepath"].str.replace(quip, quiploc, regex=False)
+manifest["imagepath"] = manifest["imagepath"].str.replace(svs, svsloc, regex=False)
 
-remoteuser = sys.argv[6]
-remotekey = sys.argv[7]
+remote = int(sys.argv[7])
+if remote:
+    remoteuser = sys.argv[8]
+    remotekey = sys.argv[9]
+
 
 def downRemoteFile(path):
     basename = path.split('/')
@@ -141,6 +146,7 @@ if not os.path.exists(outputDir): os.mkdir(outputDir)
     
 for index, row in manifest.iterrows():    
     slide_name = row["imagepath"].split('/')[-1]
+    slide_loc = row["imagepath"]
     output_folder = os.path.join(outputDir, slide_name)
     
     if not os.path.exists(output_folder) : os.mkdir(output_folder)
@@ -149,10 +155,11 @@ for index, row in manifest.iterrows():
     if os.path.isfile(fdone):
         print('fdone {} exist, skipping'.format(fdone));
         continue;
-
-    slide_name = downRemoteFile(row["imagepath"])
+    if remote:
+        slide_name = downRemoteFile(row["imagepath"])
+        slide_loc = slide_name
     try:
-        oslide = openslide.OpenSlide(slide_name);
+        oslide = openslide.OpenSlide(slide_loc);
         if openslide.PROPERTY_NAME_MPP_X in oslide.properties:
             mag = 10.0 / float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]);
         elif "XResolution" in oslide.properties:

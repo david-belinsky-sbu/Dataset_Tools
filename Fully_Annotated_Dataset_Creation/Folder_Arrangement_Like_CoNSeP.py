@@ -6,7 +6,7 @@ import sys
 
 random.seed(14)
 base = sys.argv[1]
-files = glob.glob(sys.argv[1] + "*.tif")
+files = glob.glob(sys.argv[1] + "*.svs") + glob.glob(sys.argv[1] + "*.tif")
 random.shuffle(files)
 
 split_ratio = .8
