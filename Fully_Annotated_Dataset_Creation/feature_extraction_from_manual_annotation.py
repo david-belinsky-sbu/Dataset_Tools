@@ -20,10 +20,12 @@ import glob
 from shapely.geometry import Polygon
 import scipy.io as sio
 import matplotlib.pyplot as plt
+import subprocess
 
-
-brca = '/data/images/tcga_data/brca/'
-brcaloc = sys.argv[3]
+#brca = '/data/images/tcga_data/brca/'
+#brcaloc = sys.argv[3]
+quip = '/data/images/'
+quiploc = sys.argv[3]
 
 outputDir = sys.argv[5]
 
@@ -32,9 +34,23 @@ step_size = [80, 80]
 win_size = [540, 540]
 xtractor = PatchExtractor(win_size, step_size)
 dumppath = sys.argv[1]
-polygonpath = sys.argv[4] + 'brca_polygon/{}/*.csv'
+polygonpath = sys.argv[4] + '{}/*.csv'
 manifest = pd.read_csv(os.path.join(dumppath, sys.argv[2]))
-manifest["imagepath"] = manifest["imagepath"].str.replace(brca, brcaloc, regex=False)
+manifest["imagepath"] = manifest["imagepath"].str.replace(quip, quiploc, regex=False)
+
+remoteuser = sys.argv[6]
+remotekey = sys.argv[7]
+
+def downRemoteFile(path):
+    basename = path.split('/')
+    basename = basename[-1]
+    print(remoteuser)
+    print("Downloading File: {}".format(path), end=' ')
+    p = subprocess.Popen(["scp", '-i', remotekey, '{}@quip.bmi.stonybrook.edu:{}'.format(remoteuser, path), basename])
+    sts = os.waitpid(p.pid, 0)
+    print("Done")
+    #remotefile = True
+    return basename
 
 def annotDict(annot):
     if annot == "DOTS-Tumor":
@@ -127,8 +143,16 @@ for index, row in manifest.iterrows():
     slide_name = row["imagepath"].split('/')[-1]
     output_folder = os.path.join(outputDir, slide_name)
     
+    if not os.path.exists(output_folder) : os.mkdir(output_folder)
+
+    fdone = '{}/extraction_done.txt'.format(output_folder);
+    if os.path.isfile(fdone):
+        print('fdone {} exist, skipping'.format(fdone));
+        continue;
+
+    slide_name = downRemoteFile(row["imagepath"])
     try:
-        oslide = openslide.OpenSlide(row["imagepath"]);
+        oslide = openslide.OpenSlide(slide_name);
         if openslide.PROPERTY_NAME_MPP_X in oslide.properties:
             mag = 10.0 / float(oslide.properties[openslide.PROPERTY_NAME_MPP_X]);
         elif "XResolution" in oslide.properties:
@@ -157,16 +181,6 @@ for index, row in manifest.iterrows():
     file_list = glob.glob(polygonloc) # This filelist contains the coordinates of the segmentation polygon
     if len(file_list)<=0: continue
     file_list.sort() 
-    
-    if not os.path.exists(output_folder) : os.mkdir(output_folder)
-    
-    fdone = '{}/extraction_done.txt'.format(output_folder);
-    if os.path.isfile(fdone):
-        print('fdone {} exist, skipping'.format(fdone));
-        continue;
-
-    print('extracting {}'.format(output_folder));
-    print('height/width: {}/{}'.format(height, width))
 
     
     with open(os.path.join(dumppath, row["path"])) as f: #Loading JSON from Manifest file. JSONs contain all annotations
@@ -190,34 +204,38 @@ for index, row in manifest.iterrows():
             patch = { "bound": [[minx, miny], [maxx, maxy]], "points": [], "badsegs": [], "nosegs": [], "splitsegs": []} # Mins are top left corner and Maxs are right bottom corner of the 1k box
             regions.append(patch)
         elif annot["properties"]["annotations"]["notes"] == "DOTS-Bad Segmentation":
-            badseg = annot["geometries"]["features"][0]["geometry"]["coordinates"]
-            badseg[0] = int(badseg[0] * width)
-            badseg[1] = int(badseg[1] * height)
-            badsegs.append(badseg)
+            for feature in annot["geometries"]["features"]:
+                badseg = feature["geometry"]["coordinates"]
+                badseg[0] = int(badseg[0] * width)
+                badseg[1] = int(badseg[1] * height)
+                badsegs.append(badseg)
         elif annot["properties"]["annotations"]["notes"] == "DOTS-split cell":
-            splitseg = annot["geometries"]["features"][0]["geometry"]["coordinates"]
-            splitseg[0] = int(splitseg[0] * width)
-            splitseg[1] = int(splitseg[1] * height)
-            splitsegs.append(splitseg)
+            for feature in annot["geometries"]["features"]:
+                splitseg = feature["geometry"]["coordinates"]
+                splitseg[0] = int(splitseg[0] * width)
+                splitseg[1] = int(splitseg[1] * height)
+                splitsegs.append(splitseg)
         elif annot["properties"]["annotations"]["notes"] == "DOTS-non-seg object":
-            noseg = annot["geometries"]["features"][0]["geometry"]["coordinates"]
-            noseg[0] = int(noseg[0] * width)
-            noseg[1] = int(noseg[1] * height)
-            nosegs.append(noseg)
+            for feature in annot["geometries"]["features"]:
+                noseg = feature["geometry"]["coordinates"]
+                noseg[0] = int(noseg[0] * width)
+                noseg[1] = int(noseg[1] * height)
+                nosegs.append(noseg)
         elif 'Prostate' in annot["properties"]["annotations"]["notes"]:
             continue
         elif 'DOTS' not in annot["properties"]["annotations"]["notes"]:
             continue
         else: # This block loads the nuclei type annotation with coordinates
-            point = { "type": annot["properties"]["annotations"]["notes"],
-                      "coor": annot["geometries"]["features"][0]["geometry"]["coordinates"]
-                    }
-            try:
-                point["coor"] = [int(point["coor"][0] * width), int(point["coor"][1] * height)]
-            except:
-                print(point["coor"])
-                print(point["type"])
-            points.append(point)
+            for feature in annot["geometries"]["features"]:
+                point = { "type": annot["properties"]["annotations"]["notes"],
+                          "coor": feature["geometry"]["coordinates"]
+                        }
+                try:
+                    point["coor"] = [int(point["coor"][0] * width), int(point["coor"][1] * height)]
+                except:
+                    print(point["coor"])
+                    print(point["type"])
+                points.append(point)
     
     for point in points:
         for region in regions:
@@ -341,7 +359,7 @@ for index, row in manifest.iterrows():
         
         save_dir = os.path.join(output_folder, 'Images')
         if not os.path.exists(save_dir) : os.mkdir(save_dir)
-        oslide = openslide.OpenSlide(row["imagepath"])
+        oslide = openslide.OpenSlide(slide_name)
         patch = oslide.read_region((region["bound"][0][0] + 1, region["bound"][0][1] + 1), 0, (region["bound"][1][0] - region["bound"][0][0], region["bound"][1][1] - region["bound"][0][1]));
         oslide.close()
         patch = np.array(patch)
@@ -406,6 +424,7 @@ for index, row in manifest.iterrows():
         inst_types = np.append(inst_types, inst_type2[indexer])
         
         basename = '{}_{}_{}_{}_{}'.format(region["bound"][0][0] + 1, region["bound"][0][1] + 1, region["bound"][1][0] - region["bound"][0][0], region["bound"][1][1] - region["bound"][0][1], scale)
+        patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
         cv2.imwrite('%s/%s.png' % (save_dir, basename), patch)
         save_dir = os.path.join(output_folder, 'Labels')
         if not os.path.exists(save_dir) : os.mkdir(save_dir)
@@ -438,20 +457,22 @@ for index, row in manifest.iterrows():
     f = open(fdone, 'w')
     t = len(points)
     f.write("Total Number of Dots annotated are: {}\n".format(t))
-    f.write("Number of Dots that fall outside of boxes are: {}\n".format(t-b))
-    f.write("Percentage of the dots falling into the boxes: {}%\n\n".format((b/t)*100))
-    f.write("Number of automated segmented polygon instance: {}\n".format(totals))
-    f.write("Number of dots annotated falling inside the boxes: {}\n".format(b))
-    f.write("Number of dots that matched polygons: {}\n".format(matches))
-    f.write("Percentage of manual dots vs automated polygon: {}%\n\n".format((matches/totals)*100))
-    f.write("Lymphocyte Count: {}\n".format(nucleicount[0]))
-    f.write("Tumor Count: {}\n".format(nucleicount[1]))
-    f.write("Misc. Count: {}\n\n".format(nucleicount[2]))
-    f.write("Cell Measurements (Avg Area, Std. Dev Area, Avg Perimter, Std. Dev Perimeter)\n")
-    f.write("Lymphocyte: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==1]), np.std(inst_sizes[inst_types==1]),np.mean(inst_lengths[inst_types==1]),np.std(inst_lengths[inst_types==1])))
-    f.write("Tumor: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==2]), np.std(inst_sizes[inst_types==2]),np.mean(inst_lengths[inst_types==2]),np.std(inst_lengths[inst_types==2])))
-    f.write("Misc.: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==3]), np.std(inst_sizes[inst_types==3]),np.mean(inst_lengths[inst_types==3]),np.std(inst_lengths[inst_types==3])))
-    #f.write("Stroma: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==4]), np.std(inst_sizes[inst_types==4]),np.mean(inst_lengths[inst_types==4]),np.std(inst_lengths[inst_types==4])))
-    #f.write("Misc: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==5]), np.std(inst_sizes[inst_types==5]),np.mean(inst_lengths[inst_types==5]),np.std(inst_lengths[inst_types==5])))
-    f.write("Overall: ({},{},{},{})\n".format(np.mean(inst_sizes), np.std(inst_sizes),np.mean(inst_lengths),np.std(inst_lengths)))
+    if t != 0:
+        f.write("Number of Dots that fall outside of boxes are: {}\n".format(t-b))
+        f.write("Percentage of the dots falling into the boxes: {}%\n\n".format((b/t)*100))
+        f.write("Number of automated segmented polygon instance: {}\n".format(totals))
+        f.write("Number of dots annotated falling inside the boxes: {}\n".format(b))
+        f.write("Number of dots that matched polygons: {}\n".format(matches))
+        f.write("Percentage of manual dots vs automated polygon: {}%\n\n".format((matches/totals)*100))
+        f.write("Lymphocyte Count: {}\n".format(nucleicount[0]))
+        f.write("Tumor Count: {}\n".format(nucleicount[1]))
+        f.write("Misc. Count: {}\n\n".format(nucleicount[2]))
+        f.write("Cell Measurements (Avg Area, Std. Dev Area, Avg Perimter, Std. Dev Perimeter)\n")
+        f.write("Lymphocyte: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==1]), np.std(inst_sizes[inst_types==1]),np.mean(inst_lengths[inst_types==1]),np.std(inst_lengths[inst_types==1])))
+        f.write("Tumor: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==2]), np.std(inst_sizes[inst_types==2]),np.mean(inst_lengths[inst_types==2]),np.std(inst_lengths[inst_types==2])))
+        f.write("Misc.: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==3]), np.std(inst_sizes[inst_types==3]),np.mean(inst_lengths[inst_types==3]),np.std(inst_lengths[inst_types==3])))
+        #f.write("Stroma: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==4]), np.std(inst_sizes[inst_types==4]),np.mean(inst_lengths[inst_types==4]),np.std(inst_lengths[inst_types==4])))
+        #f.write("Misc: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==5]), np.std(inst_sizes[inst_types==5]),np.mean(inst_lengths[inst_types==5]),np.std(inst_lengths[inst_types==5])))
+        f.write("Overall: ({},{},{},{})\n".format(np.mean(inst_sizes), np.std(inst_sizes),np.mean(inst_lengths),np.std(inst_lengths)))
     f.close()
+    os.remove(slide_name)

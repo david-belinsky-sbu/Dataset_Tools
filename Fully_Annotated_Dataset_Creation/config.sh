@@ -1,8 +1,11 @@
 #!/bin/bash
 
-DATADUMP=../../TCGA-brca-2020-8-10-2-52-5/
-DATAMANIFEST=manifest2.csv
-SVSLOC=/data03/tcga_data/tumor/brca/
-SEGDATA=../../segdata/
+DATADUMP=../../seer:rutgers:lung-2021-1-16-6-38-34/
+DATAMANIFEST=manifest.csv
+SVSLOC=/data/quip_distro/images/
+SEGDATA='/data11/bwang/run*/batch0*/seg_tiles/'
 
-OUTPUTDIR=../../lymphdata15/
+OUTPUTDIR=../../seertest3/
+
+REMOTEUSER=belinsky
+REMOTEKEY=~/quipkey

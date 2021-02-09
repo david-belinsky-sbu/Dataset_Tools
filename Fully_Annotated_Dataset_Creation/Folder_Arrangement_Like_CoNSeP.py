@@ -6,7 +6,7 @@ import sys
 
 random.seed(14)
 base = sys.argv[1]
-files = glob.glob(sys.argv[1] + "*.svs")
+files = glob.glob(sys.argv[1] + "*.tif")
 random.shuffle(files)
 
 split_ratio = .8
@@ -42,7 +42,7 @@ def move_numpy(filelist, destFolder):
         i = 0
         combined = glob.glob(os.path.join(t,'Combined/*.npy'))
         for src in combined:
-            dest = destFolder + "{}_{}.npy".format(t[-59:-51] + t[-44:-41],i)
+            dest = destFolder + "{}_{}.npy".format(t[-19:-13],i)
             new_path = shutil.copy(src, dest)
             print(new_path)
             i+=1
@@ -54,19 +54,19 @@ def move_image(filelist, destFolder):
         i = 0
         combined = glob.glob(os.path.join(t,'Images/*.png'))
         for src in combined:
-            dest = destFolder+ 'Images/' + "{}.png".format(t[-59:-51] + t[-44:-41])
+            dest = destFolder+ 'Images/' + "{}.png".format(t[-19:-13])
             new_path = shutil.copy(src, dest)
             print(new_path)
             i+=1
         combined = glob.glob(os.path.join(t, 'Labels/*.mat'))
         for src in combined:
-            dest = destFolder + 'Labels/' + "{}.mat".format(t[-59:-51] + t[-44:-41])
+            dest = destFolder + 'Labels/' + "{}.mat".format(t[-19:-13])
             new_path = shutil.copy(src, dest)
             print(new_path)
             i+=1
         combined = glob.glob(os.path.join(t, 'Combined/*.png'))
         for src in combined:
-            dest = destFolder + 'Combined/' + "{}.png".format(t[-59:-51] + t[-44:-41])
+            dest = destFolder + 'Combined/' + "{}.png".format(t[-19:-13])
             new_path = shutil.copy(src, dest)
             print(new_path)
             i+=1
