@@ -29,21 +29,22 @@ import subprocess
 svs = sys.argv[4]
 svsloc = sys.argv[3]
 
-outputDir = sys.argv[6]
+outputDir = sys.argv[5]
 
 extract_type = 'mirror'
 step_size = [80, 80]
 win_size = [540, 540]
 xtractor = PatchExtractor(win_size, step_size)
 dumppath = sys.argv[1]
-polygonpath = sys.argv[5] + '{}/*.csv'
+segment = int(sys.argv[6])
+polygonpath = sys.argv[7] + '{}/*.csv'
 manifest = pd.read_csv(os.path.join(dumppath, sys.argv[2]))
 manifest["imagepath"] = manifest["imagepath"].str.replace(svs, svsloc, regex=False)
 
-remote = int(sys.argv[7])
+remote = int(sys.argv[8])
 if remote:
-    remoteuser = sys.argv[8]
-    remotekey = sys.argv[9]
+    remoteuser = sys.argv[9]
+    remotekey = sys.argv[10]
 
 
 def downRemoteFile(path):
@@ -183,11 +184,11 @@ for index, row in manifest.iterrows():
     except:
         print('{}: exception caught'.format(slide_name));
         continue;
-
-    polygonloc = polygonpath.format(slide_name)          
-    file_list = glob.glob(polygonloc) # This filelist contains the coordinates of the segmentation polygon
-    if len(file_list)<=0: continue
-    file_list.sort() 
+    if segment:
+        polygonloc = polygonpath.format(slide_name)          
+        file_list = glob.glob(polygonloc) # This filelist contains the coordinates of the segmentation polygon
+        if len(file_list)<=0: continue
+        file_list.sort() 
 
     
     with open(os.path.join(dumppath, row["path"])) as f: #Loading JSON from Manifest file. JSONs contain all annotations
@@ -272,22 +273,23 @@ for index, row in manifest.iterrows():
     for region in regions:
         instance_map = np.zeros((region["bound"][1][1] - region["bound"][0][1], region["bound"][1][0] - region["bound"][0][0]), np.int32)
         previd = 0
-        corner = "/{}_{}_".format(((region["bound"][0][0]-1) // 4000)*4000 + 1, ((region["bound"][0][1]-1) // 4000)*4000 + 1)
-        mask = filematch(file_list, corner) # Get the 4k box with segmented polygon
-        instance_map, previd = applypolygons(instance_map, region, mask, previd)
-        # Following ifs are for to handle 1k box that spans over multiple 4k box
-        if (region["bound"][0][1]-1) // 4000 < (region["bound"][1][1]-1) // 4000:
-            corner = "/{}_{}_".format(((region["bound"][0][0]-1) // 4000)*4000 + 1, ((region["bound"][1][1]-1) // 4000)*4000 + 1)
-            mask = filematch(file_list, corner) 
+        if segment:
+            corner = "/{}_{}_".format(((region["bound"][0][0]-1) // 4000)*4000 + 1, ((region["bound"][0][1]-1) // 4000)*4000 + 1)
+            mask = filematch(file_list, corner) # Get the 4k box with segmented polygon
             instance_map, previd = applypolygons(instance_map, region, mask, previd)
-        if (region["bound"][0][0]-1) // 4000 < (region["bound"][1][0]-1) // 4000:
-            corner = "/{}_{}_".format(((region["bound"][1][0]-1) // 4000)*4000 + 1, ((region["bound"][0][1]-1) // 4000)*4000 + 1)
-            mask = filematch(file_list, corner)
-            instance_map, previd = applypolygons(instance_map, region, mask, previd)
-        if (region["bound"][0][0]-1) // 4000 < (region["bound"][1][0]-1) // 4000 and (region["bound"][0][1]-1) // 4000 < (region["bound"][1][1]-1) // 4000:
-            corner = "/{}_{}_".format(((region["bound"][1][0]-1) // 4000)*4000 + 1, ((region["bound"][1][1]-1) // 4000)*4000 + 1)
-            mask = filematch(file_list, corner)
-            instance_map, previd = applypolygons(instance_map, region, mask, previd)
+            # Following ifs are for to handle 1k box that spans over multiple 4k box
+            if (region["bound"][0][1]-1) // 4000 < (region["bound"][1][1]-1) // 4000:
+                corner = "/{}_{}_".format(((region["bound"][0][0]-1) // 4000)*4000 + 1, ((region["bound"][1][1]-1) // 4000)*4000 + 1)
+                mask = filematch(file_list, corner) 
+                instance_map, previd = applypolygons(instance_map, region, mask, previd)
+            if (region["bound"][0][0]-1) // 4000 < (region["bound"][1][0]-1) // 4000:
+                corner = "/{}_{}_".format(((region["bound"][1][0]-1) // 4000)*4000 + 1, ((region["bound"][0][1]-1) // 4000)*4000 + 1)
+                mask = filematch(file_list, corner)
+                instance_map, previd = applypolygons(instance_map, region, mask, previd)
+            if (region["bound"][0][0]-1) // 4000 < (region["bound"][1][0]-1) // 4000 and (region["bound"][0][1]-1) // 4000 < (region["bound"][1][1]-1) // 4000:
+                corner = "/{}_{}_".format(((region["bound"][1][0]-1) // 4000)*4000 + 1, ((region["bound"][1][1]-1) // 4000)*4000 + 1)
+                mask = filematch(file_list, corner)
+                instance_map, previd = applypolygons(instance_map, region, mask, previd)
 
         splitmap = np.zeros(instance_map.shape, np.int32)
         for splitseg in region["splitsegs"]:
@@ -431,7 +433,7 @@ for index, row in manifest.iterrows():
         inst_types = np.append(inst_types, inst_type2[indexer])
         
         basename = '{}_{}_{}_{}_{}'.format(region["bound"][0][0] + 1, region["bound"][0][1] + 1, region["bound"][1][0] - region["bound"][0][0], region["bound"][1][1] - region["bound"][0][1], scale)
-        patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
+        #patch = cv2.cvtColor(patch, cv2.COLOR_RGB2BGR)
         cv2.imwrite('%s/%s.png' % (save_dir, basename), patch)
         save_dir = os.path.join(output_folder, 'Labels')
         if not os.path.exists(save_dir) : os.mkdir(save_dir)
