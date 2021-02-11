@@ -67,4 +67,6 @@ def get_inst_centroid(inst_map):
         inst_centroid = [(inst_moment["m10"] / inst_moment["m00"]),
                          (inst_moment["m01"] / inst_moment["m00"])]
         inst_centroid_list.append(inst_centroid)
+    if inst_centroid_list == []:
+        return np.empty((0,2), np.float)
     return np.array(inst_centroid_list)
