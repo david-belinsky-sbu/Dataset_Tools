@@ -368,7 +368,7 @@ for index, row in manifest.iterrows():
         
         save_dir = os.path.join(output_folder, 'Images')
         if not os.path.exists(save_dir) : os.mkdir(save_dir)
-        oslide = openslide.OpenSlide(slide_name)
+        oslide = openslide.OpenSlide(slide_loc)
         patch = oslide.read_region((region["bound"][0][0] + 1, region["bound"][0][1] + 1), 0, (region["bound"][1][0] - region["bound"][0][0], region["bound"][1][1] - region["bound"][0][1]));
         oslide.close()
         patch = np.array(patch)
@@ -487,5 +487,5 @@ for index, row in manifest.iterrows():
         f.write("Overall: ({},{},{},{})\n".format(np.mean(inst_sizes), np.std(inst_sizes),np.mean(inst_lengths),np.std(inst_lengths)))
     f.close()
     if remote:
-        os.remove(slide_name)
+        os.remove(slide_loc)
 
