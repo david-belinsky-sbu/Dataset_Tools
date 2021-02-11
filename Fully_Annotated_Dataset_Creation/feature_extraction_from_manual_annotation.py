@@ -469,10 +469,12 @@ for index, row in manifest.iterrows():
     if t != 0:
         f.write("Number of Dots that fall outside of boxes are: {}\n".format(t-b))
         f.write("Percentage of the dots falling into the boxes: {}%\n\n".format((b/t)*100))
-        f.write("Number of automated segmented polygon instance: {}\n".format(totals))
+        if segment:
+            f.write("Number of automated segmented polygon instance: {}\n".format(totals))
         f.write("Number of dots annotated falling inside the boxes: {}\n".format(b))
-        f.write("Number of dots that matched polygons: {}\n".format(matches))
-        f.write("Percentage of manual dots vs automated polygon: {}%\n\n".format((matches/totals)*100))
+        if segment:
+            f.write("Number of dots that matched polygons: {}\n".format(matches))
+            f.write("Percentage of manual dots vs automated polygon: {}%\n\n".format((matches/totals)*100))
         f.write("Lymphocyte Count: {}\n".format(nucleicount[0]))
         f.write("Tumor Count: {}\n".format(nucleicount[1]))
         f.write("Misc. Count: {}\n\n".format(nucleicount[2]))
@@ -484,4 +486,6 @@ for index, row in manifest.iterrows():
         #f.write("Misc: ({},{},{},{})\n".format(np.mean(inst_sizes[inst_types==5]), np.std(inst_sizes[inst_types==5]),np.mean(inst_lengths[inst_types==5]),np.std(inst_lengths[inst_types==5])))
         f.write("Overall: ({},{},{},{})\n".format(np.mean(inst_sizes), np.std(inst_sizes),np.mean(inst_lengths),np.std(inst_lengths)))
     f.close()
-    os.remove(slide_name)
+    if remote:
+        os.remove(slide_name)
+
